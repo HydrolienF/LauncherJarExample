@@ -13,7 +13,7 @@ env:
   ARTIFACT_NAME: 'HelloWorldApp'
   USER_NAME: 'HydrolienF'
   UUID: '1468751e-07f8-4fab-80e4-fa15e9b364b4'
-  VERSION: '1.0'
+  VERSION: '1.1'
 
 jobs:
   releaseJob:
