@@ -47,6 +47,7 @@ jobs:
           New-Item CHANGELOG.md
         }
         echo "Build and move to root with desired name"
+        chmod 777 gradlew
         ./gradlew jar -Pversion='${{ steps.version.outputs.content }}'
         mv build/libs/*.jar ${{ env.ARTIFACT_NAME }}.jar
         ls
