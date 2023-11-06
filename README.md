@@ -1,2 +1,2 @@
 # LauncherJarExample
-A simple example for LauncherJar
+A simple example for [LauncherJar](https://github.com/HydrolienF/LauncherJar)

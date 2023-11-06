@@ -8,12 +8,12 @@ on:
 env:
   JAVA_VERSION: '18'
   JAVA_DISTRIBUTION: 'temurin'
-  JRE_VERSION: '18.0.7'
+  JRE_VERSION: '18.0.8f'
   GITHUB_TOKEN: ${{ github.token }}
-  ARTIFACT_NAME: 'HelloWorldApp'
+  ARTIFACT_NAME: 'LauncherJarExample'
   USER_NAME: 'HydrolienF'
-  UUID: '1468751e-07f8-4fab-80e4-fa15e9b364b4'
-  VERSION: '1.1'
+  USER_EMAIL: 'hydrolien.f@gmail.com'
+  UUID: 'e1caab6b-1230-4691-a880-dd2d0b8ebb98'
 
 jobs:
   releaseJob:
@@ -29,10 +29,26 @@ jobs:
         distribution: ${{ env.JAVA_DISTRIBUTION }}
         java-version: ${{ env.JAVA_VERSION }}
 
+    - name: Read version.md
+      id: version
+      uses: juliangruber/read-file-action@v1
+      with:
+        path: version.md
+
     - name: create release
+      shell: pwsh
       run: |
-        javac ${{ env.ARTIFACT_NAME }}.java
-        jar -cf ${{ env.ARTIFACT_NAME }}.jar ${{ env.ARTIFACT_NAME }}.class
+        echo "Move version.md to resources and create CHANGELOG.md if not exist"
+        if (!(Test-Path "src/main/resources")) {
+          mkdir src/main/resources
+        }
+        cp version.md src/main/resources/
+        if (!(Test-Path "CHANGELOG*")) {
+          New-Item CHANGELOG.md
+        }
+        echo "Build and move to root with desired name"
+        ./gradlew jar -Pversion='${{ steps.version.outputs.content }}'
+        mv build/libs/*.jar ${{ env.ARTIFACT_NAME }}.jar
         ls
 
     - name: release
@@ -41,80 +57,63 @@ jobs:
       with:
         draft: false
         prerelease: true
-        release_name: ${{ env.VERSION }}
-        tag_name: ${{ env.VERSION }}
+        release_name: ${{ steps.version.outputs.content }}
+        tag_name: ${{ steps.version.outputs.content }}
+        body_path: CHANGELOG.md
     - name: upload .jar artifact
       uses: actions/upload-release-asset@v1
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ env.ARTIFACT_NAME}}.jar
-        asset_name: ${{ env.ARTIFACT_NAME}}.jar
+        asset_path: ${{ env.ARTIFACT_NAME }}.jar
+        asset_name: ${{ env.ARTIFACT_NAME }}.jar
         asset_content_type: application/jar
     - name: LauncherJar
-      uses: HydrolienF/LauncherJar@0.1.78
+      uses: HydrolienF/LauncherJar@0.3.0
       with:
         project-name: ${{ env.ARTIFACT_NAME }}
         user-name: ${{ env.USER_NAME }}
-        launcher-jar-version: 0.1.78
+        launcher-jar-version: 0.3.0
         GITHUB_TOKEN: ${{ github.token }}
         release-url: ${{ steps.create_release.outputs.upload_url }}
-        app-version: ${{ env.VERSION }}
+        app-version: ${{ steps.version.outputs.content }}
         launcher-extension: 'jar'
+        JRE_VERSION: ${{ env.JRE_VERSION }}
 
-  WindowsArtifact:
+  LauncherJar:
+    name: 'LauncherJar ${{ matrix.os }} ${{ matrix.launcher-extension }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        launcher-extension: [ deb, rpm, exe, msi, dmg, pkg ]
+        include:
+          - launcher-extension: deb
+            os: ubuntu-latest
+          - launcher-extension: rpm
+            os: ubuntu-latest
+          - launcher-extension: exe
+            os: windows-latest
+          - launcher-extension: msi
+            os: windows-latest
+          - launcher-extension: dmg
+            os: macos-latest
+          - launcher-extension: pkg
+            os: macos-latest
     if: github.event.pull_request.merged == true
     needs: releaseJob
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
 
     - name: LauncherJar
-      uses: HydrolienF/LauncherJar@0.1.78
+      uses: HydrolienF/LauncherJar@0.3.0
       with:
         project-name: ${{ env.ARTIFACT_NAME }}
         user-name: ${{ env.USER_NAME }}
-        launcher-jar-version: 0.1.78
+        launcher-jar-version: 0.3.0
         GITHUB_TOKEN: ${{ github.token }}
         release-url: ${{ needs.releaseJob.outputs.upload_url }}
         app-version: ${{ needs.releaseJob.outputs.version }}
-        launcher-extension: 'exe'
+        launcher-extension: ${{ matrix.launcher-extension }}
         uuid: ${{ env.UUID }}
-
-  LinuxArtifact:
-    if: github.event.pull_request.merged == true
-    needs: releaseJob
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: LauncherJar
-      uses: HydrolienF/LauncherJar@0.1.78
-      with:
-        project-name: ${{ env.ARTIFACT_NAME }}
-        user-name: ${{ env.USER_NAME }}
-        launcher-jar-version: 0.1.78
-        GITHUB_TOKEN: ${{ github.token }}
-        release-url: ${{ needs.releaseJob.outputs.upload_url }}
-        app-version: ${{ needs.releaseJob.outputs.version }}
-        launcher-extension: 'deb'
-        deb-maintainer-email: 'hydrolien.f@gmail.com'
-        uuid: ${{ env.UUID }}
-
-  MacArtifact:
-    if: github.event.pull_request.merged == true
-    needs: releaseJob
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: LauncherJar
-      uses: HydrolienF/LauncherJar@0.1.78
-      with:
-        project-name: ${{ env.ARTIFACT_NAME }}
-        user-name: ${{ env.USER_NAME }}
-        launcher-jar-version: 0.1.78
-        GITHUB_TOKEN: ${{ github.token }}
-        release-url: ${{ needs.releaseJob.outputs.upload_url }}
-        app-version: ${{ needs.releaseJob.outputs.version }}
-        launcher-extension: 'dmg'
-        uuid: ${{ env.UUID }}
+        JRE_VERSION: ${{ env.JRE_VERSION }}
+        deb-maintainer-email: ${{ env.USER_EMAIL }}
